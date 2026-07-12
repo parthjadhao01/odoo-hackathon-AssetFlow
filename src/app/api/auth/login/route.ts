@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { withApiErrorHandling } from "@/lib/apiError";
+import { ForbiddenError } from "@/lib/authz";
 import { createSession } from "@/lib/session";
 import { loginSchema } from "@/lib/schemas/auth";
 
@@ -22,6 +23,12 @@ export async function POST(request: Request) {
 
     const passwordMatches = await bcrypt.compare(password, employee.passwordHash);
     if (!passwordMatches) return invalidCredentials();
+
+    // Correct credentials but a deactivated account: safe to be explicit
+    // here since the caller already proved they know the password.
+    if (employee.status === "INACTIVE") {
+      throw new ForbiddenError("Account is deactivated.");
+    }
 
     await createSession({
       employeeId: employee.id,

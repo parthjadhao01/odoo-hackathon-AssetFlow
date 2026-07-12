@@ -18,8 +18,12 @@ export default async function ProtectedLayout({
 
   const employee = await prisma.employee.findUniqueOrThrow({
     where: { id: session.employeeId },
-    select: { name: true, role: true },
+    select: { name: true, role: true, status: true },
   });
+
+  if (employee.status === "INACTIVE") {
+    redirect("/login");
+  }
 
   return (
     <SwrProvider>

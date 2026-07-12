@@ -193,6 +193,48 @@ async function seedDemoData() {
     },
   });
 
+  // Org Setup demo data (spec 04-organization, mockup "Screen 3"): a
+  // parent/child department pair with the child INACTIVE, a head on that
+  // inactive child, a separately-deactivated employee, and extraFields on
+  // Electronics — so all three Organization Setup tabs demo non-trivially.
+  const fieldOps = await prisma.department.create({ data: { name: "Field Ops" } });
+  const fieldOpsHead = await prisma.employee.create({
+    data: {
+      name: "Sana Iqbal",
+      email: "sana.iqbal@assetflow.local",
+      passwordHash,
+      role: "EMPLOYEE",
+    },
+  });
+  await prisma.department.create({
+    data: {
+      name: "Field Ops (East)",
+      status: "INACTIVE",
+      parentDeptId: fieldOps.id,
+      headId: fieldOpsHead.id,
+    },
+  });
+
+  await prisma.employee.create({
+    data: {
+      name: "Vikram Nair",
+      email: "vikram.nair@assetflow.local",
+      passwordHash,
+      role: "EMPLOYEE",
+      status: "INACTIVE",
+    },
+  });
+
+  await prisma.assetCategory.update({
+    where: { id: electronics.id },
+    data: {
+      extraFields: [
+        { key: "warrantyMonths", label: "Warranty (months)", type: "number", required: false },
+        { key: "serialNumber", label: "Serial number", type: "text", required: true },
+      ],
+    },
+  });
+
   await prisma.activityLog.createMany({
     data: [
       {
@@ -236,6 +278,8 @@ async function seedDemoData() {
   console.log(`  employee (IT):   sara.khan@assetflow.local / ${DEMO_PASSWORD}`);
   console.log(`  employee (Ops):  karan.mehta@assetflow.local / ${DEMO_PASSWORD}`);
   console.log(`  printer AF-0305 left UNDER_MAINTENANCE (unresolved, on purpose)`);
+  console.log(`  Field Ops (East) seeded INACTIVE under Field Ops, headed by sana.iqbal@assetflow.local`);
+  console.log(`  vikram.nair@assetflow.local seeded INACTIVE for directory demo`);
 }
 
 async function main() {

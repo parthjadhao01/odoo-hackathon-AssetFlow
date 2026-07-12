@@ -150,6 +150,15 @@ model Asset {
   status          AssetStatus @default(AVAILABLE)
   acquisitionCost Decimal?    @db.Decimal(12, 2)
 
+  serialNumber    String?   @unique
+  acquisitionDate DateTime?
+  condition       String?
+  location        String?
+  photoUrl        String?
+  documentUrls    Json?
+  bookable        Boolean   @default(false)
+  extraValues     Json?
+
   categoryId String
   category   AssetCategory @relation(fields: [categoryId], references: [id])
 

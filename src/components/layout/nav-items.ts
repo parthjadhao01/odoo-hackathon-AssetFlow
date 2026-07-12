@@ -24,7 +24,7 @@ export type NavItem = {
 export const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, enabled: true },
   { label: "Organization setup", href: "/organization", icon: Building2, enabled: true, roles: ["ADMIN"] },
-  { label: "Assets", href: "/assets", icon: Boxes, enabled: false },
+  { label: "Assets", href: "/assets", icon: Boxes, enabled: true },
   { label: "Allocation & Transfer", href: "/allocations", icon: ArrowLeftRight, enabled: false },
   { label: "Resource Booking", href: "/bookings", icon: CalendarClock, enabled: false },
   { label: "Maintenance", href: "/maintenance", icon: Wrench, enabled: false },

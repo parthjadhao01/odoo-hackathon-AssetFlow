@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "../src/lib/db";
+import { Prisma } from "../src/generated/prisma/client";
 
 const ADMIN_EMAIL = "admin@assetflow.local";
 const ADMIN_PASSWORD = "ChangeMe123!";
@@ -110,6 +111,14 @@ async function seedDemoData() {
       name: "Laptop",
       status: "ALLOCATED",
       categoryId: electronics.id,
+      serialNumber: "AST-SN-0114",
+      acquisitionDate: new Date(now - 200 * DAY_MS),
+      acquisitionCost: 95000,
+      condition: "Good",
+      location: "Bengaluru",
+      // Matches the Electronics `extraFields` set further below (assets
+      // spec §3.2's category-specific captured values).
+      extraValues: { warrantyMonths: 24, serialNumber: "SN-88213" },
     },
   });
   const monitor = await prisma.asset.create({
@@ -118,6 +127,8 @@ async function seedDemoData() {
       name: "Monitor",
       status: "ALLOCATED",
       categoryId: electronics.id,
+      location: "Bengaluru",
+      condition: "Good",
     },
   });
   const projector = await prisma.asset.create({
@@ -126,6 +137,8 @@ async function seedDemoData() {
       name: "Projector",
       status: "AVAILABLE",
       categoryId: electronics.id,
+      location: "HQ floor 2",
+      condition: "Fair",
     },
   });
   await prisma.asset.create({
@@ -134,6 +147,8 @@ async function seedDemoData() {
       name: "Printer",
       status: "UNDER_MAINTENANCE",
       categoryId: electronics.id,
+      location: "HQ floor 2",
+      condition: "Poor",
     },
   });
   await prisma.asset.create({
@@ -142,6 +157,8 @@ async function seedDemoData() {
       name: "Standing Desk",
       status: "AVAILABLE",
       categoryId: facilities.id,
+      location: "Warehouse",
+      condition: "Good",
     },
   });
   const roomB2 = await prisma.asset.create({
@@ -150,6 +167,9 @@ async function seedDemoData() {
       name: "Room B2",
       status: "AVAILABLE",
       categoryId: facilities.id,
+      location: "HQ floor 3",
+      condition: "Good",
+      bookable: true,
     },
   });
 
@@ -180,6 +200,20 @@ async function seedDemoData() {
       bookedById: employee.id,
       startsAt: new Date(now - 30 * 60 * 1000),
       endsAt: new Date(now + 30 * 60 * 1000),
+    },
+  });
+
+  // Resolved maintenance request on the projector — demoes the Assets
+  // screen's per-asset maintenance history (assets spec §6) alongside the
+  // MAINTENANCE_RESOLVED activity log entry below.
+  await prisma.maintenanceRequest.create({
+    data: {
+      assetId: projector.id,
+      raisedById: employee.id,
+      description: "Bulb replacement needed",
+      status: "RESOLVED",
+      decidedAt: new Date(now - 5 * DAY_MS),
+      resolvedAt: new Date(now - 4 * DAY_MS),
     },
   });
 
@@ -282,9 +316,74 @@ async function seedDemoData() {
   console.log(`  vikram.nair@assetflow.local seeded INACTIVE for directory demo`);
 }
 
+/**
+ * Backfills the assets-screen fields (location/condition/serialNumber/
+ * bookable/extraValues) and the projector's maintenance history row onto
+ * demo data seeded by an earlier run of this script, before those columns
+ * existed. No-ops on a fresh DB (`seedDemoData` already sets them there) and
+ * is idempotent on repeat runs.
+ */
+async function backfillAssetRegistrationDemoData() {
+  // Same gap as the asset rows below: `seedDemoData`'s early-return guard
+  // means this update never ran on a DB seeded before this field existed.
+  await prisma.assetCategory.updateMany({
+    where: { name: "Electronics", extraFields: { equals: Prisma.JsonNull } },
+    data: {
+      extraFields: [
+        { key: "warrantyMonths", label: "Warranty (months)", type: "number", required: false },
+        { key: "serialNumber", label: "Serial number", type: "text", required: true },
+      ],
+    },
+  });
+
+  const updates: [string, Prisma.AssetUpdateInput][] = [
+    [
+      "AF-0114",
+      {
+        serialNumber: "AST-SN-0114",
+        location: "Bengaluru",
+        condition: "Good",
+        extraValues: { warrantyMonths: 24, serialNumber: "SN-88213" },
+      },
+    ],
+    ["AF-0512", { location: "Bengaluru", condition: "Good" }],
+    ["AF-0062", { location: "HQ floor 2", condition: "Fair" }],
+    ["AF-0305", { location: "HQ floor 2", condition: "Poor" }],
+    ["AF-0201", { location: "Warehouse", condition: "Good" }],
+    ["AF-ROOM-B2", { location: "HQ floor 3", condition: "Good", bookable: true }],
+  ];
+
+  for (const [assetTag, data] of updates) {
+    await prisma.asset.updateMany({ where: { assetTag, location: null }, data });
+  }
+
+  const projector = await prisma.asset.findUnique({ where: { assetTag: "AF-0062" } });
+  const anyEmployee = await prisma.employee.findFirst({ where: { role: "EMPLOYEE" } });
+  if (projector && anyEmployee) {
+    const hasMaintenance = await prisma.maintenanceRequest.findFirst({
+      where: { assetId: projector.id },
+    });
+    if (!hasMaintenance) {
+      const now = Date.now();
+      const DAY_MS = 24 * 60 * 60 * 1000;
+      await prisma.maintenanceRequest.create({
+        data: {
+          assetId: projector.id,
+          raisedById: anyEmployee.id,
+          description: "Bulb replacement needed",
+          status: "RESOLVED",
+          decidedAt: new Date(now - 5 * DAY_MS),
+          resolvedAt: new Date(now - 4 * DAY_MS),
+        },
+      });
+    }
+  }
+}
+
 async function main() {
   await seedAdmin();
   await seedDemoData();
+  await backfillAssetRegistrationDemoData();
 }
 
 main()

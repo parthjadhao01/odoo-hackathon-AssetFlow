@@ -205,7 +205,7 @@ export async function getDashboardData(
       occurredAt: row.createdAt.toISOString(),
     })),
     quickActions: {
-      registerAsset: session.role === "ASSET_MANAGER",
+      registerAsset: session.role === "ASSET_MANAGER" || session.role === "ADMIN",
       bookResource: true,
       raiseRequest: true,
     },

@@ -1,5 +1,6 @@
 import type { Role } from "@/generated/prisma/client";
 import { getSession, type SessionPayload } from "@/lib/session";
+import { prisma } from "@/lib/db";
 
 export class UnauthorizedError extends Error {
   constructor(message = "Authentication required") {
@@ -15,13 +16,33 @@ export class ForbiddenError extends Error {
   }
 }
 
-/** Resolves the session or throws 401. Always the first middleware layer. */
+/**
+ * Resolves the session or throws 401. Always the first middleware layer.
+ *
+ * The JWT only proves *who* the caller is; role/departmentId/status are
+ * re-resolved from the DB on every call so a demotion, department move, or
+ * deactivation takes effect on the very next request instead of waiting out
+ * the cookie's TTL (org spec §2.1).
+ */
 export async function requireAuth(): Promise<SessionPayload> {
   const session = await getSession();
   if (!session) {
     throw new UnauthorizedError();
   }
-  return session;
+
+  const employee = await prisma.employee.findUnique({
+    where: { id: session.employeeId },
+    select: { role: true, departmentId: true, status: true },
+  });
+  if (!employee || employee.status === "INACTIVE") {
+    throw new UnauthorizedError();
+  }
+
+  return {
+    employeeId: session.employeeId,
+    role: employee.role,
+    departmentId: employee.departmentId,
+  };
 }
 
 /** Coarse role gate: is this role allowed to call the route at all. */

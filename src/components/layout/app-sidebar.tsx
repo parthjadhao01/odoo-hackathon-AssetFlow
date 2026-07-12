@@ -40,7 +40,9 @@ export function AppSidebar({
       </SidebarHeader>
       <SidebarContent className="px-2">
         <SidebarMenu>
-          {navItems.map((item) => {
+          {navItems
+            .filter((item) => !item.roles || (item.roles as string[]).includes(role))
+            .map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
 

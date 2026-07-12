@@ -73,13 +73,19 @@ enum AuditVerdict {
   DAMAGED
 }
 
+enum ActiveStatus {
+  ACTIVE
+  INACTIVE
+}
+
 // ---------------------------------------------------------------------------
 // Org structure
 // ---------------------------------------------------------------------------
 
 model Department {
-  id   String @id @default(cuid())
-  name String @unique
+  id     String       @id @default(cuid())
+  name   String       @unique
+  status ActiveStatus @default(ACTIVE)
 
   parentDeptId String?
   parentDept   Department?  @relation("DepartmentHierarchy", fields: [parentDeptId], references: [id])
@@ -96,11 +102,12 @@ model Department {
 }
 
 model Employee {
-  id           String @id @default(cuid())
+  id           String       @id @default(cuid())
   name         String
-  email        String @unique
+  email        String       @unique
   passwordHash String
-  role         Role   @default(EMPLOYEE)
+  role         Role         @default(EMPLOYEE)
+  status       ActiveStatus @default(ACTIVE)
 
   departmentId String?
   department   Department? @relation("DepartmentEmployees", fields: [departmentId], references: [id])

@@ -345,4 +345,5 @@ model ActivityLog {
 
   @@index([actorId])
   @@index([targetId])
+  @@index([createdAt])
 }
